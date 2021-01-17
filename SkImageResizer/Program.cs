@@ -8,10 +8,13 @@ namespace SkImageResizer
 {
     class Program
     {
+        static CancellationTokenSource cts = new CancellationTokenSource();
         static readonly Stopwatch sw = new Stopwatch();
 
         static async Task Main(string[] args)
         {
+            Console.CancelKeyPress += Console_CancelKeyPress;
+
             var imageProcess = new SKImageProcess();
             var sourcePath = Path.Combine(Environment.CurrentDirectory, "images");
             var destinationPath1 = Path.Combine(Environment.CurrentDirectory, "output1");
@@ -36,27 +39,35 @@ namespace SkImageResizer
 
             try
             {
-                await imageProcess.ResizeImagesAsync(sourcePath, destinationPath2, 2.0);
+                await imageProcess.ResizeImagesAsync(sourcePath, destinationPath2, 2.0, cts.Token);
+
+                sw.Stop();
+
+                decimal result2 = sw.ElapsedMilliseconds;
+                Console.WriteLine($"非同步的花費時間: {result2} ms");
+
+                // Result
+                // 效能提升比例公式：((Orig - New) / Orig) * 100%
+
+                var result = ((result1 - result2) / result1) * 100;
+                Console.WriteLine($"效能提升 {result:f2}%");
             }
             catch (OperationCanceledException ex)
             {
-                Console.WriteLine($"Canceled: {ex}");
+                Console.WriteLine($"Canceled: {ex.Message}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Exception:{ex}");
             }
-
-            sw.Stop();
-
-            decimal result2 = sw.ElapsedMilliseconds;
-            Console.WriteLine($"非同步的花費時間: {result2} ms");
-
-            // Result
-            // 效能提升比例公式：((Orig - New) / Orig) * 100%
-
-            var result = ((result1 - result2) / result1) * 100;
-            Console.WriteLine($"效能提升 {result:f2}%");
         }
+
+        static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        {
+            cts.Cancel();
+
+            e.Cancel = true;
+        }
+
     }
 }

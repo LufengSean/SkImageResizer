@@ -46,17 +46,36 @@ namespace SkImageResizer
             }
         }
 
-        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale, CancellationToken cancellationToken = default)
         {
             if (!Directory.Exists(destPath))
             {
                 Directory.CreateDirectory(destPath);
             }
-
             await Task.Yield();
 
+            var tasks = new List<Task>();
             var allFiles = FindImages(sourcePath);
             foreach (var filePath in allFiles)
+            {
+                tasks.Add(Run(filePath, destPath, scale, cancellationToken));
+            }
+            await Task.WhenAll(tasks);
+        }
+
+        public async Task Run(string filePath, string destPath, double scale, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                var allFiles_Delete = FindImages(destPath);
+                foreach (var filePath_Delete in allFiles_Delete)
+                {
+                    File.Delete(filePath_Delete);
+                }
+                throw new OperationCanceledException("使用者取消");
+            }
+            else
             {
                 var bitmap = SKBitmap.Decode(filePath);
                 var imgPhoto = SKImage.FromBitmap(bitmap);
@@ -69,14 +88,15 @@ namespace SkImageResizer
                 var destinationHeight = (int)(sourceHeight * scale);
 
                 using var scaledBitmap = bitmap.Resize(
-                    new SKImageInfo(destinationWidth, destinationHeight),
-                    SKFilterQuality.High);
+                new SKImageInfo(destinationWidth, destinationHeight),
+                SKFilterQuality.High);
                 using var scaledImage = SKImage.FromBitmap(scaledBitmap);
                 using var data = scaledImage.Encode(SKEncodedImageFormat.Jpeg, 100);
                 using var s = File.OpenWrite(Path.Combine(destPath, imgName + ".jpg"));
-                data.SaveTo(s);
+                if (!cancellationToken.IsCancellationRequested) data.SaveTo(s);
             }
         }
+
 
         /// <summary>
         /// 清空目的目錄下的所有檔案與目錄
