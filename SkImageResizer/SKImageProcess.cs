@@ -58,14 +58,9 @@ namespace SkImageResizer
             var allFiles = FindImages(sourcePath);
             foreach (var filePath in allFiles)
             {
-                tasks.Add(Run(filePath, destPath, scale, cancellationToken));
+                tasks.Add(RunAsync(filePath, destPath, scale, cancellationToken));
             }
             await Task.WhenAll(tasks);
-        }
-
-        public async Task Run(string filePath, string destPath, double scale, CancellationToken cancellationToken = default)
-        {
-            await Task.Yield();
             if (cancellationToken.IsCancellationRequested)
             {
                 var allFiles_Delete = FindImages(destPath);
@@ -75,7 +70,12 @@ namespace SkImageResizer
                 }
                 throw new OperationCanceledException("使用者取消");
             }
-            else
+        }
+
+        public async Task RunAsync(string filePath, string destPath, double scale, CancellationToken cancellationToken = default)
+        {
+            await Task.Yield();
+            if (!cancellationToken.IsCancellationRequested)
             {
                 var bitmap = SKBitmap.Decode(filePath);
                 var imgPhoto = SKImage.FromBitmap(bitmap);
